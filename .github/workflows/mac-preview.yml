@@ -33,13 +33,15 @@ jobs:
           out/mac/dbg/test_util -for-ai
           status=$?
           if [ "$status" -ne 0 ]; then
-            lldb --batch -o run -o 'thread backtrace all' -- out/mac/dbg/test_util -for-ai
+            lldb --batch -o run -k 'thread backtrace all' -- out/mac/dbg/test_util -for-ai
           fi
           exit "$status"
       - name: Release build
         run: bun cmd/ng-build.ts -rel SumatraPDF
       - name: Package and verify app and DMG
         run: bash cmd/package-mac.sh
+      - name: Smoke test packaged app
+        run: bun cmd/mac-smoke.ts
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: SumatraPDF-macos-${{ matrix.arch }}

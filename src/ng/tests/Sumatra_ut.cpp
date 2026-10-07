@@ -95,6 +95,11 @@ static void PlatformSystemFontTest() {
     fz_font* font = fz_load_system_font(ctx, "Helvetica", 0, 0, 0);
 #endif
     utassert(font);
+    if (font) {
+        int glyph = fz_encode_character(ctx, font, 'A');
+        utassert(glyph > 0);
+        utassert(fz_advance_glyph(ctx, font, glyph, 0) > 0);
+    }
     fz_drop_font(ctx, font);
     font = fz_load_system_font(ctx, "SumatraMissingFont-7FA26D", 0, 0, 1);
     utassert(!font);

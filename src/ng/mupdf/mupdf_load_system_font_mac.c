@@ -75,11 +75,8 @@ static fz_font* load_ct_font_data(fz_context* ctx, const char* name, CTFontRef c
     int count = 0;
     size_t table_data_size = 0;
     for (CFIndex i = 0; i < tag_count; i++) {
-        uint32_t tag = 0;
-        CFNumberRef number = (CFNumberRef)CFArrayGetValueAtIndex(tags, i);
-        if (!CFNumberGetValue(number, kCFNumberSInt32Type, &tag)) {
-            continue;
-        }
+        // CoreText returns unboxed CTFontTableTag values, not CFNumber objects.
+        CTFontTableTag tag = (CTFontTableTag)(uintptr_t)CFArrayGetValueAtIndex(tags, i);
         CFDataRef data = CTFontCopyTable(ct_font, tag, kCTFontTableOptionNoOptions);
         if (!data) {
             continue;
