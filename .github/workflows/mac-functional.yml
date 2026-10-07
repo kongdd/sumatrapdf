@@ -1,0 +1,50 @@
+name: mac-functional
+on:
+  push:
+    branches: [mac-functional-checks]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  wait-for-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Wait for ARM64 installer
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh run watch 37661939828 --interval 15 --exit-status
+  test:
+    needs: wait-for-package
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+      - uses: actions/download-artifact@v4
+        with:
+          name: SumatraPDF-macos-arm64
+          run-id: 37661939828
+          github-token: ${{ github.token }}
+          path: package
+      - name: Verify and extract installer
+        run: |
+          cd package
+          shasum -a 256 -c *.sha256
+          mkdir -p ../out/mac/mount ../out/mac/functional
+          hdiutil attach -readonly -nobrowse -mountpoint ../out/mac/mount *.dmg
+          cp -R ../out/mac/mount/SumatraPDF.app ../out/mac/functional/
+          hdiutil detach ../out/mac/mount
+      - name: Reading, Tabs and memory checks
+        env:
+          SUMATRA_MAC_EXE: out/mac/functional/SumatraPDF.app/Contents/MacOS/SumatraPDF
+        run: bun cmd/mac-functional.ts
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: mac-functional-report
+          path: out/mac/functional/report.json
+          if-no-files-found: warn
