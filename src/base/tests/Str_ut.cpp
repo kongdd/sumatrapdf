@@ -1154,7 +1154,11 @@ void StrTest() {
 
     {
         for (int c = 0x00; c < 0x100; c++) {
-            utassert(!!isspace((u8)c) == str::IsWs((char)c));
+            // IsWs classifies ASCII bytes; libc isspace is locale-dependent
+            // and also accepts non-ASCII bytes on macOS.
+            const char* whitespace = " \t\n\v\f\r";
+            bool expected = c != 0 && strchr(whitespace, c) != nullptr;
+            utassert(expected == str::IsWs((char)c));
         }
         for (int c = 0x00; c < 0x10000; c++) {
             utassert(!!iswspace((WCHAR)c) == wstr::IsWs((WCHAR)c));

@@ -1,0 +1,78 @@
+name: mac-preview
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x86_64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '15.0'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+      - name: Build unit tests
+        run: bun cmd/ng-build.ts -dbg test_util
+      - name: Run unit tests
+        run: |
+          set +e
+          out/mac/dbg/test_util -for-ai
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            lldb --batch -o run -o 'thread backtrace all' -- out/mac/dbg/test_util -for-ai
+          fi
+          exit "$status"
+      - name: Release build
+        run: bun cmd/ng-build.ts -rel SumatraPDF
+      - name: Package and verify app and DMG
+        run: bash cmd/package-mac.sh
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: SumatraPDF-macos-${{ matrix.arch }}
+          path: |
+            out/mac/package/*.dmg
+            out/mac/package/*.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: SumatraPDF-macos-*
+          merge-multiple: true
+          path: dist
+      - name: Publish Mac preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          tag="macos-preview-${GITHUB_RUN_NUMBER}"
+          cat > notes.md <<'EOF'
+          Experimental macOS build of SumatraPDF's new cross-platform interface.
+
+          Requires macOS 15 or newer. Choose arm64 for Apple Silicon or x86_64 for Intel.
+          Open the DMG and drag SumatraPDF.app into Applications.
+          This community preview is ad-hoc signed, without Apple notarization.
+          macOS may require explicitly allowing the app in Privacy & Security.
+          EOF
+          gh release create "$tag" dist/* --target "$GITHUB_SHA" --prerelease \
+            --title "SumatraPDF macOS preview ${GITHUB_RUN_NUMBER}" --notes-file notes.md
