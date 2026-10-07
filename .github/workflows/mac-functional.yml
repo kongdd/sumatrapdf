@@ -15,7 +15,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-        run: gh run watch 37661939828 --interval 15 --exit-status
+        run: gh run watch 37663395720 --interval 15 --exit-status
   test:
     needs: wait-for-package
     runs-on: macos-15
@@ -26,7 +26,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: SumatraPDF-macos-arm64
-          run-id: 37661939828
+          run-id: 37663395720
           github-token: ${{ github.token }}
           path: package
       - name: Verify and extract installer

@@ -86,6 +86,11 @@ await session("reading-tabs", [textPdf, bookmarks, textPdf], async (cmd) => {
   check("Search UI accepts text", find.toLowerCase().includes("zlib"), find);
   check("Search finds a text occurrence", number(find, "hitPage") > 0 && number(find, "busy") === 0, find);
   await cmd("TestInput", ["key", 27, 0]);
+  await cmd("TestInvokeCommand", ["CmdSelectAll"]);
+  check("Select All selects PDF text", number(await cmd("TestUiState"), "selection") === 1, await cmd("TestUiState"));
+  await cmd("TestInvokeCommand", ["CmdCopySelection"]);
+  const copied = execFileSync("pbpaste", [], { encoding: "utf8" });
+  check("Copy Selection reaches the Mac clipboard", copied.toLowerCase().includes("zlib"), { characters: copied.length });
   for (let i = 0; i < number(ui, "tabs"); i++) {
     if ((await cmd("TestCurrentTab")).includes(bookmarks)) break;
     await cmd("TestInvokeCommand", ["CmdNextTab"]);
