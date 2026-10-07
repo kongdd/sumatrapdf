@@ -8,17 +8,32 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: mac-preview-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  cancel-obsolete:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Cancel older Mac builds
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh api "repos/$GH_REPO/actions/runs?status=in_progress&branch=master&per_page=30" \
+            --jq '.workflow_runs[] | select(.name == "mac-preview") | .id' |
+          while read -r run; do
+            if [ "$run" -lt "$GITHUB_RUN_ID" ]; then
+              gh api --method POST "repos/$GH_REPO/actions/runs/$run/cancel"
+            fi
+          done
   build:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: macos-15
-            arch: arm64
-          - runner: macos-15-intel
-            arch: x86_64
-    runs-on: ${{ matrix.runner }}
+    name: Apple Silicon build
+    needs: cancel-obsolete
+    runs-on: macos-15
     timeout-minutes: 45
     env:
       MACOSX_DEPLOYMENT_TARGET: '15.0'
@@ -49,7 +64,7 @@ jobs:
           done
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: SumatraPDF-macos-${{ matrix.arch }}
+          name: SumatraPDF-macos-arm64
           path: |
             out/mac/package/*.dmg
             out/mac/package/*.sha256
@@ -64,8 +79,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          pattern: SumatraPDF-macos-*
-          merge-multiple: true
+          name: SumatraPDF-macos-arm64
           path: dist
       - name: Publish Mac preview
         env:
@@ -76,7 +90,7 @@ jobs:
           cat > notes.md <<'EOF'
           Experimental macOS build of SumatraPDF's new cross-platform interface.
 
-          Requires macOS 15 or newer. Choose arm64 for Apple Silicon or x86_64 for Intel.
+          Requires macOS 15 or newer on Apple Silicon (including M5 Max).
           Open the DMG and drag SumatraPDF.app into Applications.
           This community preview is ad-hoc signed, without Apple notarization.
           macOS may require explicitly allowing the app in Privacy & Security.
