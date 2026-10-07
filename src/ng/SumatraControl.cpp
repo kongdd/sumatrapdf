@@ -742,7 +742,8 @@ static void ExecuteControlRequest(ControlRequest* req) {
         case ControlCmd::Quit:
             AppendArgInt(req->results, 0);
             AppendArgEnd(req->results);
-            AppShellQuit();
+            // The listener sends the reply before posting the actual quit.
+            // Closing the last window here can exit before the reply is written.
             break;
 
         // A notification covers part of the document for a couple of seconds,
@@ -1604,6 +1605,7 @@ static void SumatraControlThread(ControlThreadArg* arg) {
         DisconnectNamedPipe(pipe);
         CloseHandle(pipe);
         if (stop) {
+            uitask::Post(MkFunc0(AppShellQuit), "SumatraControlQuit");
             return;
         }
     }
@@ -1663,6 +1665,7 @@ static void SumatraControlThread(ControlThreadArg* arg) {
         shutdown(conn, SHUT_WR);
         close(conn);
         if (stop) {
+            uitask::Post(MkFunc0(AppShellQuit), "SumatraControlQuit");
             break;
         }
     }

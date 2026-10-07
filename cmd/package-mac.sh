@@ -44,4 +44,4 @@ dmg="$dist/SumatraPDF-$version-macos-$arch.dmg"
 rm -f "$dmg"
 hdiutil create -volname "SumatraPDF Preview" -srcfolder "$stage" -format UDZO "$dmg"
 hdiutil verify "$dmg"
-shasum -a 256 "$dmg" > "$dmg.sha256"
+(cd "$dist" && shasum -a 256 "$(basename "$dmg")" > "$(basename "$dmg").sha256")

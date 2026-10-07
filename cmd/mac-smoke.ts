@@ -6,7 +6,7 @@ import { connect, controlCommands, sendCommand } from "./ng-dbg-control";
 const exe = resolve("out/mac/package/stage/SumatraPDF.app/Contents/MacOS/SumatraPDF");
 const pdf = resolve("docs/test/zlib.3.pdf");
 const pipe = `sumatra-mac-smoke-${process.pid}`;
-const child = spawn(exe, ["-for-testing", "-appdata", resolve("out/mac/smoke-settings"), pdf, "-dbg-control", pipe], {
+const child = spawn(exe, ["-for-testing", "-appdata", resolve("out/mac/smoke-settings"), "-page", "1", pdf, "-dbg-control", pipe], {
   stdio: "inherit",
 });
 const exited = new Promise<number | null>((resolve, reject) => {

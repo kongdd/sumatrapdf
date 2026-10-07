@@ -25,6 +25,8 @@ jobs:
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+      - name: Test automation socket
+        run: bun test cmd/ng-dbg-control.test.ts
       - name: Build unit tests
         run: bun cmd/ng-build.ts -dbg test_util
       - name: Run unit tests
@@ -41,7 +43,10 @@ jobs:
       - name: Package and verify app and DMG
         run: bash cmd/package-mac.sh
       - name: Smoke test packaged app
-        run: bun cmd/mac-smoke.ts
+        run: |
+          for attempt in 1 2 3; do
+            bun cmd/mac-smoke.ts
+          done
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: SumatraPDF-macos-${{ matrix.arch }}

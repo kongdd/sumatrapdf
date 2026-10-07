@@ -161,27 +161,33 @@ export async function connect(name: string, timeoutMs: number): Promise<Socket> 
   }
 }
 
-async function readExactly(s: Socket, n: number): Promise<Buffer> {
+export async function readExactly(s: Socket, n: number): Promise<Buffer> {
   const chunks: Buffer[] = [];
   let total = 0;
   while (total < n) {
-    const chunk = s.read(n - total) as Buffer | null;
+    // Consume short reads too, so EOF can be emitted after a truncated packet.
+    const want = Math.min(n - total, s.readableLength) || n - total;
+    const chunk = s.read(want) as Buffer | null;
     if (chunk) {
       chunks.push(chunk);
       total += chunk.length;
       continue;
     }
+    if (s.readableEnded || s.destroyed) throw new Error("Control socket closed before a complete response");
     await new Promise<void>((resolve, reject) => {
-      const onReadable = () => {
-        s.off("error", onError);
-        resolve();
-      };
-      const onError = (e: Error) => {
+      const cleanup = () => {
         s.off("readable", onReadable);
-        reject(e);
+        s.off("error", onError);
+        s.off("end", onEnd);
+        s.off("close", onEnd);
       };
+      const onReadable = () => { cleanup(); resolve(); };
+      const onError = (e: Error) => { cleanup(); reject(e); };
+      const onEnd = () => { cleanup(); reject(new Error("Control socket closed before a complete response")); };
       s.once("readable", onReadable);
       s.once("error", onError);
+      s.once("end", onEnd);
+      s.once("close", onEnd);
     });
   }
   return Buffer.concat(chunks);
